@@ -4,7 +4,7 @@
   become: yes
   vars:
     domain_name: "renesh.xyz"
-    email: "renumlal007@gmail.com"
+    email: "*****@gmail.com"
 
   tasks:
     - name: Install necessary packages
