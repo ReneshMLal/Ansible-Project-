@@ -1,2 +1,2 @@
 [web]
-43.204.116.122 ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/project/key.pem
+<public-ipv4> ansible_user=ubuntu ansible_ssh_private_key_file=/home/ubuntu/project/key.pem
