@@ -5,7 +5,7 @@
 
   vars:
     admin_username: admin
-    admin_password: "$5$sW8Rixeex/pE6auS$Qs9UkLLPT/CEE1UPAAHoNUl9.ggyChsR1lZTEBH5j98"
+    admin_password: "Hashed Password"  
 
   tasks:
     - name: Check if admin user is currently active
