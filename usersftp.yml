@@ -1,0 +1,78 @@
+---
+- name: Configure admin user and SFTP with VSFTPD
+  hosts: web
+  become: yes
+
+  vars:
+    admin_username: admin
+    admin_password: "$5$sW8Rixeex/pE6auS$Qs9UkLLPT/CEE1UPAAHoNUl9.ggyChsR1lZTEBH5j98"
+
+  tasks:
+    - name: Check if admin user is currently active
+      ansible.builtin.shell: |
+        if id "{{ admin_username }}" &>/dev/null && fuser -u /home/{{ admin_username }}; then
+          echo "active"
+        else
+          echo "inactive"
+        fi
+      register: admin_user_status
+
+    - name: Create admin user if inactive
+      ansible.builtin.user:
+        name: "{{ admin_username }}"
+        password: "{{ admin_password }}"
+        shell: /bin/bash
+        create_home: yes
+        home: /home/{{ admin_username }}/renesh.xyz/public
+      when: admin_user_status.stdout == "inactive"
+
+    - name: Ensure base directory exists
+      ansible.builtin.file:
+        path: /home/{{ admin_username }}/renesh.xyz
+        state: directory
+        mode: '0755'
+        owner: "{{ admin_username }}"
+        group: "{{ admin_username }}"
+
+    - name: Ensure public directory exists
+      ansible.builtin.file:
+        path: /home/{{ admin_username }}/renesh.xyz/public
+        state: directory
+        mode: '0755'
+        owner: "{{ admin_username }}"
+        group: "{{ admin_username }}"
+
+    - name: Install VSFTPD
+      ansible.builtin.package:
+        name: vsftpd
+        state: present
+
+    - name: Ensure VSFTPD configuration directory exists
+      ansible.builtin.file:
+        path: /etc/vsftpd
+        state: directory
+
+    - name: Create VSFTPD configuration file
+      ansible.builtin.file:
+        path: /etc/vsftpd/vsftpd.conf
+        state: touch
+
+    - name: Configure VSFTPD
+      ansible.builtin.lineinfile:
+        path: /etc/vsftpd/vsftpd.conf
+        regexp: '^#?anonymous_enable'
+        line: 'anonymous_enable=NO'
+        state: present
+
+    # Add other VSFTPD configuration settings here (e.g., local_enable, write_enable, etc.)
+
+    - name: Create FTP directory
+      ansible.builtin.shell:
+        cmd: mkdir -p /home/{{ admin_username }}/ftp
+
+    - name: Restart SSH service
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+        enabled: yes
+

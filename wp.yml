@@ -1,0 +1,79 @@
+---
+- name: Setup WordPress on Nginx, PHP, MySQL Server
+  hosts: web
+  become: yes
+
+  vars_files:
+    - vars.yml
+
+  vars:
+    db_name: wordpress_db
+    db_user: wordpress_user
+    db_host: localhost
+    wp_download_url: https://wordpress.org/latest.tar.gz
+    wp_install_dir: /home/admin/renesh.xyz/public
+
+  tasks:
+    - name: Install required PHP extensions
+      apt:
+        name:
+          - php-mysql
+          - php-curl
+          - php-gd
+          - php-xml
+          - php-mbstring
+        state: present
+        update_cache: yes
+
+    - name: Download and extract WordPress
+      unarchive:
+        src: "{{ wp_download_url }}"
+        dest: "{{ wp_install_dir }}"
+        remote_src: yes
+        creates: "{{ wp_install_dir }}/wordpress"
+      notify: Set WordPress ownership
+
+    - name: Move WordPress files to the web root
+      command: rsync -av {{ wp_install_dir }}/wordpress/ {{ wp_install_dir }}/
+      args:
+        removes: "{{ wp_install_dir }}/wordpress"
+      when: not ansible_check_mode
+
+    - name: Set permissions for WordPress files
+      file:
+        path: "{{ wp_install_dir }}"
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Create MySQL database
+      mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Create MySQL user
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        column_case_sensitive: false
+
+    - name: Copy wp-config.php file
+      template:
+        src: wp-config.php.j2
+        dest: "{{ wp_install_dir }}/wp-config.php"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+  handlers:
+    - name: Set WordPress ownership
+      command: chown -R www-data:www-data {{ wp_install_dir }}
+

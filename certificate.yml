@@ -1,0 +1,74 @@
+---
+- name: Install and configure SSL with Let's Encrypt
+  hosts: web
+  become: yes
+  vars:
+    domain_name: "renesh.xyz"
+    email: "renumlal007@gmail.com"
+
+  tasks:
+    - name: Install necessary packages
+      apt:
+        name:
+          - software-properties-common
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    - name: Obtain SSL certificate from Let's Encrypt
+      command: >
+        certbot --nginx
+        -d {{ domain_name }}
+        --non-interactive
+        --agree-tos
+        --email {{ email }}
+      notify: reload nginx
+
+    - name: Ensure Nginx sites-available directory exists
+      file:
+        path: /etc/nginx/sites-available
+        state: directory
+        mode: '0755'
+
+    - name: Create a basic Nginx server block for HTTP and PHP
+      copy:
+        dest: /etc/nginx/sites-available/{{ domain_name }}
+        content: |
+          server {
+              listen 80;
+              server_name {{ domain_name }};
+
+              root /home/admin/renesh.xyz/public;
+
+              index index.php index.html index.htm;
+
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+
+              location ~ \.php$ {
+                  include snippets/fastcgi-php.conf;
+                  fastcgi_pass unix:/run/php/php8.3-fpm.sock;  # Adjust the version if needed
+              }
+
+              location ~ /\.ht {
+                  deny all;
+              }
+          }
+      notify: reload nginx
+
+    - name: Enable the Nginx server block
+      file:
+        src: /etc/nginx/sites-available/{{ domain_name }}
+        dest: /etc/nginx/sites-enabled/{{ domain_name }}
+        state: link
+        force: yes
+      notify: reload nginx
+
+  handlers:
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
+

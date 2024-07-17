@@ -1,0 +1,95 @@
+---
+- name: Configure phpMyAdmin Access
+  hosts: web
+  become: yes
+  vars_files:
+    - vars.yml
+  vars:
+    phpmyadmin_version: "5.1.1"
+    phpmyadmin_install_dir: "/usr/share/phpmyadmin"
+    phpmyadmin_symlink: "/var/www/html/phpmyadmin"
+    php_version: "8.3"  # Ensure this matches your PHP version
+  tasks:
+    - name: Ensure debconf-utils is installed
+      apt:
+        name: debconf-utils
+        state: present
+
+    - name: Update and upgrade APT packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name:
+          - phpmyadmin
+        state: present
+
+    - name: Configure phpMyAdmin database
+      debconf:
+        name: phpmyadmin
+        question: "phpmyadmin/dbconfig-install"
+        value: "true"
+        vtype: boolean
+
+    - name: Set phpMyAdmin MySQL application password
+      debconf:
+        name: phpmyadmin
+        question: "phpmyadmin/mysql/app-pass"
+        value: "{{ mysql_root_password }}"
+        vtype: password
+
+    - name: Set phpMyAdmin MySQL administrative user password
+      debconf:
+        name: phpmyadmin
+        question: "phpmyadmin/mysql/admin-pass"
+        value: "{{ mysql_root_password }}"
+        vtype: password
+
+    - name: Create phpMyAdmin configuration for Nginx
+      copy:
+        dest: /etc/nginx/sites-available/phpmyadmin
+        content: |
+          server {
+              listen 80;
+              server_name renesh.xyz;
+
+              root {{ phpmyadmin_symlink }};
+              index index.php index.html index.htm;
+
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+
+              location ~ \.php$ {
+                  include snippets/fastcgi-php.conf;
+                  fastcgi_pass unix:/var/run/php/php{{ php_version }}-fpm.sock;
+              }
+
+              location ~ /\.ht {
+                  deny all;
+              }
+          }
+      notify: Reload Nginx
+
+    - name: Create symbolic link for phpMyAdmin
+      file:
+        src: "{{ phpmyadmin_install_dir }}"
+        dest: "{{ phpmyadmin_symlink }}"
+        state: link
+
+    - name: Enable phpMyAdmin site in Nginx
+      file:
+        src: /etc/nginx/sites-available/phpmyadmin
+        dest: /etc/nginx/sites-enabled/phpmyadmin
+        state: link
+        force: yes
+      notify: Reload Nginx
+
+  handlers:
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
+

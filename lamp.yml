@@ -1,0 +1,54 @@
+---
+- name: Install LEMP stack (Nginx, MariaDB, PHP) on Ubuntu
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Nginx service
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+
+    - name: Install MariaDB server
+      apt:
+        name: mariadb-server
+        state: present
+        update_cache: yes
+
+    - name: Start and enable MariaDB service
+      systemd:
+        name: mariadb
+        enabled: yes
+        state: started
+
+    - name: Install PHP and modules
+      apt:
+        name:
+          - php-fpm
+          - php-mysql
+          - php-cli
+          - php-curl
+          - php-gd
+          - php-mbstring
+          - php-xml
+          - php-zip
+        state: present
+        update_cache: yes
+
+    # Add more tasks as needed (e.g., configure Nginx, set up virtual hosts, etc.)
+    # ...
+
+  handlers:
+    - name: Restart Nginx after configuration changes
+      systemd:
+        name: nginx
+        state: restarted
+
+
